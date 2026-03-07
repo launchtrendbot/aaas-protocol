@@ -1,290 +1,369 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AaaS Protocol V3 - DeFi Agent Marketplace</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/ethers@6/dist/ethers.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@3/dist/chart.min.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
-        * { font-family: 'Space Grotesk', sans-serif; }
-        body { background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #0c4a6e 100%); min-height: 100vh; }
-        .tab-active { background-color: rgb(59, 130, 246); color: white; }
-        .tab-inactive { background-color: rgb(55, 65, 81); color: rgb(209, 213, 219); }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-        .agent-card { transition: all 0.3s ease; }
-        .agent-card:hover { transform: translateY(-4px); }
-        .badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 0.375rem; font-size: 0.75rem; }
-        .badge-verified { background: rgb(34, 197, 94, 0.2); color: rgb(34, 197, 94); }
-        .badge-trending { background: rgb(59, 130, 246, 0.2); color: rgb(59, 130, 246); }
-        .badge-top { background: rgb(234, 179, 8, 0.2); color: rgb(234, 179, 8); }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AaaS Protocol – DeFi Agent Marketplace</title>
+
+  <!--
+    CDN assets pinned to exact versions.
+    TODO production: generate SRI hashes with:
+      openssl dgst -sha384 -binary <file> | openssl base64 -A
+    then add integrity="sha384-..." crossorigin="anonymous" to each tag.
+  -->
+  <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    *, body { font-family: 'Space Grotesk', sans-serif; }
+    code, pre, textarea.code-editor { font-family: 'JetBrains Mono', monospace; }
+
+    body { background: linear-gradient(135deg, #0f172a 0%, #1a2f6e 60%, #0c3a50 100%); min-height: 100vh; }
+
+    /* Tabs */
+    .tab-active   { background: rgb(59,130,246); color:#fff; }
+    .tab-inactive { background: rgb(55,65,81);   color: rgb(209,213,219); }
+    .tab-content  { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Cards */
+    .agent-card { transition: all .25s ease; }
+    .agent-card:hover { transform: translateY(-4px); box-shadow: 0 8px 32px rgba(59,130,246,.25); }
+
+    /* Badges */
+    .badge          { display:inline-block; padding:.2rem .6rem; border-radius:.375rem; font-size:.7rem; font-weight:600; }
+    .badge-verified { background:rgba(34,197,94,.15);  color:rgb(34,197,94); }
+    .badge-trending { background:rgba(59,130,246,.15); color:rgb(99,160,255); }
+    .badge-top      { background:rgba(234,179,8,.15);  color:rgb(234,179,8); }
+    .badge-new      { background:rgba(168,85,247,.15); color:rgb(192,132,252); }
+
+    /* Code editor */
+    .code-editor {
+      background: #0d1117; color: #e6edf3;
+      border: 1px solid rgba(99,160,255,.25);
+      border-radius: .5rem; padding: 1rem;
+      font-size: .8rem; line-height: 1.6;
+      resize: vertical; min-height: 220px;
+      width: 100%; outline: none;
+      tab-size: 2;
+    }
+    .code-editor:focus { border-color: rgb(59,130,246); }
+
+    /* Risk colour helpers */
+    .risk-critical { color: #f87171; }
+    .risk-high     { color: #fb923c; }
+    .risk-medium   { color: #facc15; }
+    .risk-low      { color: #4ade80; }
+    .risk-healthy  { color: #34d399; }
+
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+    .animate-pulse  { animation: pulse 2s cubic-bezier(.4,0,.6,1) infinite; }
+    @keyframes spin  { to{transform:rotate(360deg)} }
+    .animate-spin   { animation: spin 1s linear infinite; }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar       { width:6px; height:6px; }
+    ::-webkit-scrollbar-track { background: rgba(15,23,42,.5); }
+    ::-webkit-scrollbar-thumb { background: rgba(59,130,246,.5); border-radius:3px; }
+  </style>
 </head>
 <body class="text-white">
-    <!-- Header -->
-    <header class="sticky top-0 z-50 backdrop-blur-lg border-b border-blue-500/20">
-        <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-gradient-to-br from-blue-400 to-cyan-400 rounded-lg flex items-center justify-center font-bold text-slate-950">A↗</div>
-                <div>
-                    <h1 class="text-xl font-black bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-300 bg-clip-text text-transparent">AaaS V3</h1>
-                    <p class="text-xs text-green-300">🟢 Live • Base Mainnet • Real USDC</p>
-                </div>
-            </div>
-            <div id="walletInfo" class="flex items-center gap-2">
-                <button id="connectBtn" onclick="connectWallet()" class="px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 rounded-lg font-semibold text-sm transition">
-                    Connect Wallet
-                </button>
-            </div>
-        </div>
-    </header>
 
-    <main class="max-w-7xl mx-auto px-6 py-8">
-        <!-- Tab Navigation -->
-        <div class="flex gap-2 mb-8 overflow-x-auto pb-4 border-b border-blue-500/20">
-            <button onclick="switchTab('marketplace')" class="tab-button active px-6 py-2 rounded-lg font-bold transition whitespace-nowrap tab-active">🏪 Marketplace</button>
-            <button onclick="switchTab('templates')" class="tab-button px-6 py-2 rounded-lg font-bold transition whitespace-nowrap tab-inactive">📚 Templates</button>
-            <button onclick="switchTab('deploy')" class="tab-button px-6 py-2 rounded-lg font-bold transition whitespace-nowrap tab-inactive">🚀 Deploy</button>
-            <button onclick="switchTab('dashboard')" class="tab-button px-6 py-2 rounded-lg font-bold transition whitespace-nowrap tab-inactive">📊 Dashboard</button>
-            <button onclick="switchTab('developer')" class="tab-button px-6 py-2 rounded-lg font-bold transition whitespace-nowrap tab-inactive">💰 Earnings</button>
-            <button onclick="switchTab('rankings')" class="tab-button px-6 py-2 rounded-lg font-bold transition whitespace-nowrap tab-inactive">🏆 Rankings</button>
-        </div>
+<!-- ─── Header ─────────────────────────────────────────────────────────── -->
+<header class="sticky top-0 z-50 backdrop-blur-lg border-b border-blue-500/20 bg-slate-950/60">
+  <div class="max-w-7xl mx-auto px-4 md:px-6 py-4 flex justify-between items-center gap-4">
+    <div class="flex items-center gap-3 flex-shrink-0">
+      <div class="w-10 h-10 bg-gradient-to-br from-blue-400 to-cyan-400 rounded-lg flex items-center justify-center font-black text-slate-950 text-lg">A</div>
+      <div>
+        <h1 class="text-xl font-black bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-300 bg-clip-text text-transparent leading-none">AaaS Protocol</h1>
+        <p class="text-xs text-green-300">🟢 Live · Base Mainnet · Real USDC</p>
+      </div>
+    </div>
+    <div id="walletArea">
+      <button id="connectBtn" onclick="connectWallet()" class="px-5 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 rounded-lg font-semibold text-sm transition whitespace-nowrap">
+        Connect Wallet
+      </button>
+    </div>
+  </div>
+</header>
 
-        <!-- MARKETPLACE TAB -->
-        <div id="marketplace" class="tab-content active">
-            <h2 class="text-4xl font-black mb-4">Agent Marketplace</h2>
-            <p class="text-slate-300 mb-8">Discover, execute, and earn from AI agents. Real USDC payments. Trustless execution.</p>
-            
-            <!-- Filters -->
-            <div class="flex gap-4 mb-8">
-                <input type="text" id="searchBox" placeholder="Search agents..." onkeyup="filterAgents()" class="px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:border-blue-400 flex-1">
-                <select id="categoryFilter" onchange="filterAgents()" class="px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:border-blue-400">
-                    <option value="">All Categories</option>
-                    <option value="trading">Trading</option>
-                    <option value="arbitrage">Arbitrage</option>
-                    <option value="liquidations">Liquidations</option>
-                    <option value="defi">DeFi</option>
-                    <option value="nfts">NFTs</option>
-                </select>
-            </div>
+<main class="max-w-7xl mx-auto px-4 md:px-6 py-8">
 
-            <!-- Agent Grid -->
-            <div id="agentGrid" class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div class="col-span-full text-center py-12">
-                    <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-400"></div>
-                </div>
-            </div>
-        </div>
+  <!-- Tab nav -->
+  <div class="flex gap-2 mb-8 overflow-x-auto pb-2 border-b border-blue-500/20">
+    <button onclick="switchTab('marketplace',this)" class="tab-btn tab-active px-5 py-2 rounded-lg font-bold text-sm transition whitespace-nowrap">🏪 Marketplace</button>
+    <button onclick="switchTab('templates',this)"   class="tab-btn tab-inactive px-5 py-2 rounded-lg font-bold text-sm transition whitespace-nowrap">📚 Templates</button>
+    <button onclick="switchTab('deploy',this)"      class="tab-btn tab-inactive px-5 py-2 rounded-lg font-bold text-sm transition whitespace-nowrap">🚀 Deploy Agent</button>
+    <button onclick="switchTab('dashboard',this)"   class="tab-btn tab-inactive px-5 py-2 rounded-lg font-bold text-sm transition whitespace-nowrap">📊 My Dashboard</button>
+    <button onclick="switchTab('earnings',this)"    class="tab-btn tab-inactive px-5 py-2 rounded-lg font-bold text-sm transition whitespace-nowrap">💰 Earnings</button>
+    <button onclick="switchTab('rankings',this)"    class="tab-btn tab-inactive px-5 py-2 rounded-lg font-bold text-sm transition whitespace-nowrap">🏆 Rankings</button>
+  </div>
 
-        <!-- TEMPLATES TAB -->
-        <div id="templates" class="tab-content">
-            <h2 class="text-4xl font-black mb-8">Agent Templates</h2>
-            <div id="templateGrid" class="grid md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
-        </div>
-
-        <!-- DEPLOY TAB -->
-        <div id="deploy" class="tab-content">
-            <h2 class="text-4xl font-black mb-8">Deploy Your Agent</h2>
-            <div class="grid lg:grid-cols-2 gap-8">
-                <!-- Deploy Form -->
-                <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-8">
-                    <h3 class="text-2xl font-black mb-6">Create New Agent</h3>
-                    <div class="space-y-4">
-                        <div>
-                            <label class="text-sm text-blue-300 block mb-2">Agent Name *</label>
-                            <input type="text" id="agentName" placeholder="My Trading Bot" class="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:border-blue-400">
-                        </div>
-                        <div>
-                            <label class="text-sm text-blue-300 block mb-2">Description *</label>
-                            <textarea id="agentDesc" placeholder="What does your agent do?" class="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:border-blue-400" rows="3"></textarea>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="text-sm text-blue-300 block mb-2">Category *</label>
-                                <select id="agentCategory" class="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:border-blue-400">
-                                    <option>trading</option>
-                                    <option>arbitrage</option>
-                                    <option>liquidations</option>
-                                    <option>defi</option>
-                                    <option>nfts</option>
-                                    <option>data</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="text-sm text-blue-300 block mb-2">Price/Call (USDC) *</label>
-                                <input type="number" id="agentPrice" step="0.01" placeholder="0.5" class="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:border-blue-400">
-                            </div>
-                        </div>
-                        <div>
-                            <label class="text-sm text-blue-300 block mb-2">Use Template (Optional)</label>
-                            <select id="templateSelect" class="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:border-blue-400">
-                                <option value="">Start from scratch</option>
-                            </select>
-                        </div>
-                        <button onclick="deployAgent()" class="w-full px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 rounded-lg font-bold transition mt-4">
-                            🚀 Deploy Agent
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Info Panel -->
-                <div class="space-y-6">
-                    <div class="bg-blue-500/10 border border-blue-400/20 rounded-xl p-6">
-                        <h4 class="font-bold text-lg mb-4">📋 Requirements</h4>
-                        <ul class="space-y-2 text-sm text-slate-300">
-                            <li>✅ Descriptive name (searchable)</li>
-                            <li>✅ Clear description (what it does)</li>
-                            <li>✅ Appropriate category</li>
-                            <li>✅ Fair pricing (competitive)</li>
-                            <li>✅ Production code (audited)</li>
-                        </ul>
-                    </div>
-                    <div class="bg-emerald-500/10 border border-emerald-400/20 rounded-xl p-6">
-                        <h4 class="font-bold text-lg mb-4">💰 Earnings Model</h4>
-                        <div class="space-y-2 text-sm">
-                            <div class="flex justify-between">
-                                <span>User pays:</span>
-                                <span class="font-bold">$1.00</span>
-                            </div>
-                            <div class="h-px bg-emerald-400/20"></div>
-                            <div class="flex justify-between">
-                                <span>You earn:</span>
-                                <span class="font-bold text-emerald-300">$0.80 (80%)</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span>Protocol:</span>
-                                <span class="text-slate-400">$0.20 (20%)</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div id="deployMessage" class="mt-4 hidden p-4 rounded-lg text-sm"></div>
-        </div>
-
-        <!-- DASHBOARD TAB -->
-        <div id="dashboard" class="tab-content">
-            <h2 class="text-4xl font-black mb-8">Your Dashboard</h2>
-            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-6">
-                    <p class="text-slate-400 text-sm mb-2">Total Spent</p>
-                    <p id="userSpent" class="text-3xl font-black text-emerald-300">$0</p>
-                </div>
-                <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-6">
-                    <p class="text-slate-400 text-sm mb-2">Executions</p>
-                    <p id="userExecs" class="text-3xl font-black text-blue-300">0</p>
-                </div>
-                <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-6">
-                    <p class="text-slate-400 text-sm mb-2">Subscriptions</p>
-                    <p id="userSubs" class="text-3xl font-black text-purple-300">0</p>
-                </div>
-                <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-6">
-                    <p class="text-slate-400 text-sm mb-2">Reputation</p>
-                    <p id="userRep" class="text-3xl font-black text-yellow-300">5.0</p>
-                </div>
-            </div>
-
-            <!-- Buy Credits Section -->
-            <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-8 mb-8">
-                <h3 class="text-2xl font-black mb-6">Buy Credits</h3>
-                <div class="grid md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="text-sm text-blue-300 block mb-2">Amount (USDC)</label>
-                        <input type="number" id="creditAmount" placeholder="10" step="0.01" class="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:border-blue-400">
-                    </div>
-                    <div>
-                        <label class="text-sm text-blue-300 block mb-2">&nbsp;</label>
-                        <button onclick="buyCredits()" class="w-full px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg font-bold">💳 Buy Credits</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Recent Activity -->
-            <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-6">
-                <h3 class="text-2xl font-black mb-6">Recent Transactions</h3>
-                <div id="recentTxs" class="space-y-2 text-sm">
-                    <p class="text-slate-400">No transactions yet</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- DEVELOPER TAB -->
-        <div id="developer" class="tab-content">
-            <h2 class="text-4xl font-black mb-8">Developer Earnings</h2>
-            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                <div class="bg-emerald-500/10 border border-emerald-400/20 rounded-xl p-6">
-                    <p class="text-emerald-300/80 text-sm mb-2">Total Earned</p>
-                    <p id="devEarned" class="text-3xl font-black text-emerald-300">$0</p>
-                </div>
-                <div class="bg-blue-500/10 border border-blue-400/20 rounded-xl p-6">
-                    <p class="text-blue-300/80 text-sm mb-2">Withdrawn</p>
-                    <p id="devWithdrawn" class="text-3xl font-black text-blue-300">$0</p>
-                </div>
-                <div class="bg-yellow-500/10 border border-yellow-400/20 rounded-xl p-6">
-                    <p class="text-yellow-300/80 text-sm mb-2">Available</p>
-                    <p id="devAvailable" class="text-3xl font-black text-yellow-300">$0</p>
-                </div>
-                <div class="bg-purple-500/10 border border-purple-400/20 rounded-xl p-6">
-                    <p class="text-purple-300/80 text-sm mb-2">Agents</p>
-                    <p id="devAgentCount" class="text-3xl font-black text-purple-300">0</p>
-                </div>
-            </div>
-
-            <button onclick="withdrawEarnings()" class="px-8 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 rounded-lg font-bold mb-8">
-                💰 Withdraw Earnings
-            </button>
-
-            <!-- Your Agents -->
-            <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-6">
-                <h3 class="text-2xl font-black mb-6">Your Deployed Agents</h3>
-                <div id="devAgents" class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <p class="col-span-full text-slate-400">Connect wallet to see your agents</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- RANKINGS TAB -->
-        <div id="rankings" class="tab-content">
-            <h2 class="text-4xl font-black mb-8">Top Agents</h2>
-            <div class="flex gap-4 mb-8">
-                <select id="rankingCategory" onchange="loadRankings()" class="px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:border-blue-400">
-                    <option value="">All Categories</option>
-                    <option value="trading">Trading</option>
-                    <option value="arbitrage">Arbitrage</option>
-                    <option value="liquidations">Liquidations</option>
-                </select>
-            </div>
-
-            <div class="space-y-4">
-                <div id="rankingsList">
-                    <div class="text-center py-8">
-                        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-400"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <!-- Agent Modal -->
-    <div id="agentModal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 hidden p-4">
-        <div class="bg-slate-900 rounded-2xl p-8 max-w-2xl w-full border border-green-500/20 max-h-[90vh] overflow-y-auto">
-            <div id="modalContent"></div>
-        </div>
+  <!-- ════════ MARKETPLACE ════════ -->
+  <div id="marketplace" class="tab-content active">
+    <div class="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
+      <div>
+        <h2 class="text-4xl font-black">Agent Marketplace</h2>
+        <p class="text-slate-400 mt-1">Discover and execute DeFi agents. Pay USDC, get real results instantly.</p>
+      </div>
+      <div id="platformStats" class="flex gap-6 text-sm"></div>
     </div>
 
-    <!-- Loading -->
-    <div id="loading" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
-        <div class="text-center">
-            <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-400"></div>
-            <p class="mt-4 text-emerald-300">Processing...</p>
-        </div>
+    <!-- Filters -->
+    <div class="flex flex-col sm:flex-row gap-3 mb-8">
+      <input id="searchBox" type="text" placeholder="Search agents…" oninput="filterAgents()"
+        class="flex-1 px-4 py-2 bg-slate-900/60 border border-slate-700/60 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-400">
+      <select id="categoryFilter" onchange="filterAgents()"
+        class="px-4 py-2 bg-slate-900/60 border border-slate-700/60 rounded-lg text-white focus:outline-none focus:border-blue-400">
+        <option value="">All Categories</option>
+        <option value="defi">DeFi</option>
+        <option value="trading">Trading</option>
+        <option value="data">Data</option>
+        <option value="arbitrage">Arbitrage</option>
+        <option value="liquidations">Liquidations</option>
+      </select>
     </div>
 
-    <script src="/frontend-v3.js"></script>
+    <div id="agentGrid" class="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+      <div class="col-span-full text-center py-16">
+        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ TEMPLATES ════════ -->
+  <div id="templates" class="tab-content">
+    <h2 class="text-4xl font-black mb-2">Agent Templates</h2>
+    <p class="text-slate-400 mb-8">Fork a template to deploy your own agent in minutes.</p>
+    <div id="templateGrid" class="grid md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+  </div>
+
+  <!-- ════════ DEPLOY ════════ -->
+  <div id="deploy" class="tab-content">
+    <h2 class="text-4xl font-black mb-2">Deploy Your Agent</h2>
+    <p class="text-slate-400 mb-8">Ship executable code to the marketplace. Earn 80% of every execution fee.</p>
+
+    <div class="grid lg:grid-cols-5 gap-8">
+      <!-- Form (3/5 width) -->
+      <div class="lg:col-span-3 bg-slate-800/40 border border-slate-700/50 rounded-xl p-8 space-y-5">
+        <h3 class="text-xl font-bold">Agent Details</h3>
+
+        <div>
+          <label class="text-xs text-blue-300 font-semibold uppercase tracking-wide block mb-1">Agent Name *</label>
+          <input id="agentName" type="text" placeholder="My Yield Optimizer"
+            class="w-full px-4 py-2.5 bg-slate-900/60 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:border-blue-400">
+        </div>
+
+        <div>
+          <label class="text-xs text-blue-300 font-semibold uppercase tracking-wide block mb-1">Description *</label>
+          <textarea id="agentDesc" rows="2" placeholder="What does your agent do? What inputs does it expect?"
+            class="w-full px-4 py-2.5 bg-slate-900/60 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:border-blue-400 resize-none"></textarea>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="text-xs text-blue-300 font-semibold uppercase tracking-wide block mb-1">Category *</label>
+            <select id="agentCategory" class="w-full px-4 py-2.5 bg-slate-900/60 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:border-blue-400">
+              <option value="defi">DeFi</option>
+              <option value="trading">Trading</option>
+              <option value="data">Data</option>
+              <option value="arbitrage">Arbitrage</option>
+              <option value="liquidations">Liquidations</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-blue-300 font-semibold uppercase tracking-wide block mb-1">Price / Call (USDC) *</label>
+            <input id="agentPrice" type="number" min="0.01" step="0.01" placeholder="0.25"
+              class="w-full px-4 py-2.5 bg-slate-900/60 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:border-blue-400">
+          </div>
+        </div>
+
+        <!-- Template picker -->
+        <div>
+          <label class="text-xs text-blue-300 font-semibold uppercase tracking-wide block mb-1">Start from Template (optional)</label>
+          <select id="templateSelect" onchange="loadTemplateCode()"
+            class="w-full px-4 py-2.5 bg-slate-900/60 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:border-blue-400">
+            <option value="">— write from scratch —</option>
+          </select>
+        </div>
+
+        <!-- Code editor -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-xs text-blue-300 font-semibold uppercase tracking-wide">Agent Code *</label>
+            <span class="text-xs text-slate-500">Pure JS · no require · no fetch · no process</span>
+          </div>
+          <textarea id="agentCode" class="code-editor" rows="14" spellcheck="false"
+            placeholder="async function agent(context) {
+  const { input } = context;
+  // your logic here...
+  return { success: true, result: 42 };
+}
+result = await agent(context);"></textarea>
+        </div>
+
+        <button onclick="deployAgent()"
+          class="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 rounded-lg font-bold transition text-base">
+          🚀 Deploy Agent to Marketplace
+        </button>
+
+        <div id="deployMessage" class="hidden p-4 rounded-lg text-sm"></div>
+      </div>
+
+      <!-- Sidebar (2/5 width) -->
+      <div class="lg:col-span-2 space-y-5">
+        <div class="bg-blue-500/10 border border-blue-400/20 rounded-xl p-6">
+          <h4 class="font-bold mb-3">📋 Code Rules</h4>
+          <ul class="space-y-1.5 text-sm text-slate-300">
+            <li>✅ Input arrives as <code class="text-blue-300">context.input</code></li>
+            <li>✅ Assign result to <code class="text-blue-300">result</code> variable</li>
+            <li>✅ Pure computation only (Math, JSON, Date…)</li>
+            <li>❌ No <code class="text-red-400">require</code> / <code class="text-red-400">import</code></li>
+            <li>❌ No <code class="text-red-400">fetch</code> / network calls</li>
+            <li>❌ No <code class="text-red-400">process</code> / file system</li>
+            <li>⏱ 8-second execution timeout</li>
+            <li>📦 Max 50 KB code</li>
+          </ul>
+        </div>
+
+        <div class="bg-emerald-500/10 border border-emerald-400/20 rounded-xl p-6">
+          <h4 class="font-bold mb-3">💰 Earnings Model</h4>
+          <div class="space-y-2 text-sm">
+            <div class="flex justify-between"><span class="text-slate-400">User pays</span><span class="font-bold">$1.00 USDC</span></div>
+            <div class="h-px bg-slate-700/50"></div>
+            <div class="flex justify-between"><span class="text-slate-400">You earn (80%)</span><span class="font-bold text-emerald-300">$0.80 USDC</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">Protocol fee (20%)</span><span class="text-slate-500">$0.20 USDC</span></div>
+          </div>
+        </div>
+
+        <div class="bg-purple-500/10 border border-purple-400/20 rounded-xl p-6">
+          <h4 class="font-bold mb-3">💡 Example Agent</h4>
+          <pre class="text-xs text-slate-300 overflow-x-auto">async function agent(context) {
+  const { amount, rate } = context.input;
+  const result = amount * (1 + rate/100);
+  return { success: true, result };
+}
+result = await agent(context);</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ DASHBOARD ════════ -->
+  <div id="dashboard" class="tab-content">
+    <h2 class="text-4xl font-black mb-8">My Dashboard</h2>
+
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-5">
+        <p class="text-slate-400 text-xs uppercase tracking-wide mb-2">Total Spent</p>
+        <p id="userSpent" class="text-3xl font-black text-emerald-300">$0.00</p>
+      </div>
+      <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-5">
+        <p class="text-slate-400 text-xs uppercase tracking-wide mb-2">Executions</p>
+        <p id="userExecs" class="text-3xl font-black text-blue-300">0</p>
+      </div>
+      <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-5">
+        <p class="text-slate-400 text-xs uppercase tracking-wide mb-2">Subscriptions</p>
+        <p id="userSubs" class="text-3xl font-black text-purple-300">0</p>
+      </div>
+      <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-5">
+        <p class="text-slate-400 text-xs uppercase tracking-wide mb-2">Reputation</p>
+        <p id="userRep" class="text-3xl font-black text-yellow-300">5.0</p>
+      </div>
+    </div>
+
+    <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-6">
+      <h3 class="text-xl font-bold mb-4">Recent Executions</h3>
+      <div id="recentTxs" class="space-y-2 text-sm">
+        <p class="text-slate-500">Connect wallet to see your execution history.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ EARNINGS ════════ -->
+  <div id="earnings" class="tab-content">
+    <h2 class="text-4xl font-black mb-8">Developer Earnings</h2>
+
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div class="bg-emerald-500/10 border border-emerald-400/20 rounded-xl p-5">
+        <p class="text-emerald-300/70 text-xs uppercase tracking-wide mb-2">Total Earned</p>
+        <p id="devEarned" class="text-3xl font-black text-emerald-300">$0.00</p>
+      </div>
+      <div class="bg-blue-500/10 border border-blue-400/20 rounded-xl p-5">
+        <p class="text-blue-300/70 text-xs uppercase tracking-wide mb-2">Withdrawn</p>
+        <p id="devWithdrawn" class="text-3xl font-black text-blue-300">$0.00</p>
+      </div>
+      <div class="bg-yellow-500/10 border border-yellow-400/20 rounded-xl p-5">
+        <p class="text-yellow-300/70 text-xs uppercase tracking-wide mb-2">Available</p>
+        <p id="devAvailable" class="text-3xl font-black text-yellow-300">$0.00</p>
+      </div>
+      <div class="bg-purple-500/10 border border-purple-400/20 rounded-xl p-5">
+        <p class="text-purple-300/70 text-xs uppercase tracking-wide mb-2">Agents Deployed</p>
+        <p id="devAgentCount" class="text-3xl font-black text-purple-300">0</p>
+      </div>
+    </div>
+
+    <div class="flex gap-4 mb-8">
+      <button onclick="withdrawEarnings()"
+        class="px-8 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 rounded-lg font-bold transition">
+        💰 Withdraw to Wallet
+      </button>
+      <button onclick="switchTab('deploy', document.querySelector('[onclick*=deploy]'))"
+        class="px-8 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-bold transition">
+        + Deploy New Agent
+      </button>
+    </div>
+
+    <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-6">
+      <h3 class="text-xl font-bold mb-5">Your Agents</h3>
+      <div id="devAgents" class="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <p class="col-span-full text-slate-500">Connect wallet to see your deployed agents.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ RANKINGS ════════ -->
+  <div id="rankings" class="tab-content">
+    <h2 class="text-4xl font-black mb-2">Top Agents</h2>
+    <p class="text-slate-400 mb-8">Ranked by rating × success rate × volume.</p>
+
+    <div class="flex gap-3 mb-8">
+      <select id="rankingCategory" onchange="loadRankings()"
+        class="px-4 py-2 bg-slate-900/60 border border-slate-700/60 rounded-lg text-white focus:outline-none focus:border-blue-400">
+        <option value="">All Categories</option>
+        <option value="defi">DeFi</option>
+        <option value="trading">Trading</option>
+        <option value="data">Data</option>
+      </select>
+    </div>
+    <div id="rankingsList" class="space-y-4">
+      <div class="text-center py-10"><div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div></div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ─── Agent modal ────────────────────────────────────────────────────────── -->
+<div id="agentModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4">
+  <div class="bg-slate-900 rounded-2xl max-w-2xl w-full border border-blue-500/20 max-h-[92vh] overflow-y-auto">
+    <div id="modalContent" class="p-8"></div>
+  </div>
+</div>
+
+<!-- ─── Global loading overlay ───────────────────────────────────────────── -->
+<div id="loading" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+  <div class="text-center">
+    <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400"></div>
+    <p id="loadingMsg" class="mt-4 text-blue-300 font-semibold">Processing…</p>
+  </div>
+</div>
+
+<!-- Toast notification -->
+<div id="toast" class="fixed bottom-6 right-6 z-50 hidden max-w-sm"></div>
+
+<script src="/frontend-v3.js"></script>
 </body>
 </html>
